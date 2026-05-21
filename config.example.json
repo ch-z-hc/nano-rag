@@ -1,0 +1,24 @@
+{
+  "deepseek": {
+    "api_key": "sk-your-deepseek-api-key",
+    "model": "deepseek-chat",
+    "base_url": "https://api.deepseek.com"
+  },
+  "rag": {
+    "chunk_size": 500,
+    "chunk_overlap": 100,
+    "top_k": 5,
+    "embedding_model": "paraphrase-multilingual-MiniLM-L12-v2",
+    "collection_name": "nano_rag_kb",
+    "persist_dir": "./chroma_db"
+  },
+  "wechat": {
+    "enabled": true,
+    "api_base": "https://ilinkai.weixin.qq.com",
+    "poll_interval": 3
+  },
+  "server": {
+    "host": "127.0.0.1",
+    "port": 8899
+  }
+}

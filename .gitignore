@@ -1,0 +1,28 @@
+# Sensitive — contains API keys
+config.json
+
+# Personal knowledge base files
+knowledge/
+
+# Vector database (large binary, local only)
+chroma_db/
+
+# WeChat session (personal token)
+.wechat_session.json
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Virtual environment
+venv/
+.venv/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
