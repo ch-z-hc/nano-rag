@@ -8,11 +8,13 @@
 ## 特性
 
 - **RAG 全链路**：文档解析 → 语义分块 → 向量化入库 → 检索 → LLM 生成
+- **混合检索**：BM25 稀疏检索 + 稠密向量检索，通过 RRF（Reciprocal Rank Fusion）融合排序
+- **父子分块策略**：2048 字符父块保留完整上下文，256 字符子块用于精细检索，命中后自动展开为父块
 - **多格式支持**：PDF（含 OCR 回退）、Markdown、TXT、代码文件（20+ 语言）
 - **微信机器人**：基于 ilinkai 协议，扫码登录，长轮询消息同步，自动回复
 - **Web 前端**：Markdown 渲染 + LaTeX 公式（KaTeX）+ 拖拽上传 + 知识库管理
 - **零配置运行**：本地 ChromaDB 向量库，无需外部数据库
-- **中文优化**：中英文自动间距、中文 embedding 模型、结构化 Prompt
+- **中文优化**：jieba 分词、中英文自动间距、中文 embedding 模型、结构化 Prompt
 
 ## 架构
 
@@ -20,22 +22,26 @@
 用户（微信 / Web）
        │
        ▼
-┌─────────────┐    ┌──────────────┐    ┌──────────────┐
-│   channels   │───▶│   rag/query  │───▶│  DeepSeek API │
-│  wechat.py   │    │  retrieve()  │    │  生成回答      │
-└─────────────┘    └──────┬───────┘    └──────────────┘
-                          │
-                 ┌────────▼────────┐
-                 │   ChromaDB      │
-                 │   向量相似度搜索  │
-                 └────────▲────────┘
-                          │
-                 ┌────────┴────────┐
-                 │  rag/ingest.py  │
-                 │  文档分块+向量化  │
-                 │  sentence-      │
-                 │  transformers   │
-                 └─────────────────┘
+┌─────────────┐    ┌──────────────────────────────────┐    ┌──────────────┐
+│   channels   │───▶│          rag/query.py            │───▶│  DeepSeek API │
+│  wechat.py   │    │                                  │    │  生成回答      │
+└─────────────┘    │  ┌─────────┐    ┌──────────┐    │    └──────────────┘
+                   │  │ BM25    │    │ Dense    │    │
+                   │  │ 稀疏检索 │───▶│ RRF 融合 │────┤
+                   │  │ (jieba) │    │ 排序     │    │
+                   │  └────┬────┘    └────┬─────┘    │
+                   └───────┼──────────────┼───────────┘
+                           │              │
+                   ┌───────▼────┐  ┌──────▼────────┐
+                   │ BM25 索引   │  │  ChromaDB     │
+                   │ 关键词匹配  │  │  向量相似度    │
+                   └───────▲────┘  └──────▲────────┘
+                           │              │
+                   ┌───────┴──────────────┴───────────┐
+                   │         rag/ingest.py            │
+                   │  文档解析 + 分块 + 向量化          │
+                   │  (父子分块策略可选)                │
+                   └──────────────────────────────────┘
 ```
 
 ## 快速开始
@@ -71,8 +77,11 @@ python main.py wechat-login   # 扫码登录
     "base_url": "https://api.deepseek.com"
   },
   "rag": {
-    "chunk_size": 500,
-    "chunk_overlap": 100,
+    "chunking_strategy": "parent_child",
+    "parent_chunk_size": 2048,
+    "child_chunk_size": 256,
+    "child_chunk_overlap": 50,
+    "hybrid_search": true,
     "top_k": 5,
     "embedding_model": "paraphrase-multilingual-MiniLM-L12-v2",
     "persist_dir": "./chroma_db"
@@ -87,6 +96,16 @@ python main.py wechat-login   # 扫码登录
   }
 }
 ```
+
+### 分块策略
+
+- **`flat`**（默认）：固定大小分块，简单直接
+- **`parent_child`**：父子分块，检索用子块（细粒度），返回时展开为父块（完整上下文）
+
+### 检索模式
+
+- **`hybrid_search: false`**（默认）：仅使用稠密向量检索
+- **`hybrid_search: true`**：混合检索（BM25 + 稠密向量 + RRF 融合），适合关键词精确匹配 + 语义理解场景
 
 ### 国内 HuggingFace 镜像
 
@@ -154,6 +173,8 @@ nano-rag/
 |---|---|
 | Embedding | sentence-transformers (multilingual MiniLM) |
 | 向量库 | ChromaDB (SQLite, 本地持久化) |
+| 稀疏检索 | BM25 (rank-bm25) + jieba 分词 |
+| 检索融合 | RRF (Reciprocal Rank Fusion) |
 | LLM | DeepSeek Chat API |
 | Web 框架 | aiohttp |
 | 前端 | Vanilla JS + marked + KaTeX |
