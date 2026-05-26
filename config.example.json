@@ -1,6 +1,6 @@
 {
   "llm": {
-    "active": "deepseek",
+    "active": "dashscope",
     "providers": {
       "deepseek": {
         "api_key": "sk-your-deepseek-api-key",

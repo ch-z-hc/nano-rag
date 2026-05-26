@@ -40,7 +40,9 @@ def _chunk_text(text: str, chunk_size: int, overlap: int) -> List[str]:
         # Try to break at sentence end within the last 20% of the chunk
         chunk_slice = text[start:end]
         search_start = int(len(chunk_slice) * 0.8)
-        break_chars = "。！？\n.!?" if any("一" <= c <= "鿿" for c in chunk_slice) else ".!?\n"
+        # Check if text contains CJK characters (U+4E00 to U+9FFF)
+        has_cjk = any("一" <= c <= "鿿" for c in chunk_slice)
+        break_chars = "。！？\n.!?" if has_cjk else ".!?\n"
         best = -1
         for ch in break_chars:
             pos = chunk_slice.rfind(ch, search_start)

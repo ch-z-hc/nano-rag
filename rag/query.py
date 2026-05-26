@@ -4,7 +4,6 @@ import json
 from pathlib import Path
 from typing import List
 
-import jieba
 from openai import OpenAI
 from rank_bm25 import BM25Okapi
 
@@ -36,6 +35,10 @@ _bm25_index = None
 
 def _tokenize(text: str) -> List[str]:
     """Tokenize text using jieba (handles both Chinese and English)."""
+    try:
+        import jieba
+    except ImportError:
+        raise ImportError("jieba is required for hybrid search. Install: pip install jieba")
     return [w for w in jieba.cut(text) if w.strip()]
 
 
@@ -46,20 +49,26 @@ def _get_bm25_index():
         return _bm25_index
 
     collection, _ = get_store()
-    results = collection.get(include=["documents"])
+    results = collection.get(include=["documents", "metadatas"])
 
     if not results["ids"]:
-        _bm25_index = (None, [], [])
+        _bm25_index = (None, [], [], {})
         return _bm25_index
 
     docs = results["documents"]
     ids = results["ids"]
-    metadatas = results.get("metadatas", [{}] * len(ids))
+    metadatas = results.get("metadatas") or [{}] * len(ids)
+
+    # Build id -> (doc, metadata) lookup for fast BM25 result retrieval
+    id_lookup = {
+        doc_id: {"content": doc, "metadata": meta}
+        for doc_id, doc, meta in zip(ids, docs, metadatas)
+    }
 
     tokenized = [_tokenize(d) for d in docs]
     bm25 = BM25Okapi(tokenized)
 
-    _bm25_index = (bm25, ids, metadatas)
+    _bm25_index = (bm25, ids, metadatas, id_lookup)
     return _bm25_index
 
 
@@ -96,7 +105,7 @@ def _retrieve_dense(question: str, top_k: int) -> List[dict]:
 
 def _retrieve_bm25(question: str, top_k: int) -> List[dict]:
     """BM25 sparse retrieval."""
-    bm25, ids, metadatas = _get_bm25_index()
+    bm25, ids, metadatas, id_lookup = _get_bm25_index()
     if bm25 is None:
         return []
 
@@ -106,20 +115,19 @@ def _retrieve_bm25(question: str, top_k: int) -> List[dict]:
     # Get top-k indices sorted by score
     top_indices = sorted(range(len(scores)), key=lambda i: scores[i], reverse=True)[:top_k]
 
-    collection, _ = get_store()
     chunks = []
     for idx in top_indices:
         if scores[idx] <= 0:
             break
-        result = collection.get(ids=[ids[idx]], include=["documents", "metadatas"])
-        if result["documents"]:
-            chunks.append({
-                "id": ids[idx],
-                "content": result["documents"][0],
-                "metadata": result["metadatas"][0] if result["metadatas"] else {},
-                "distance": None,
-                "bm25_score": float(scores[idx]),
-            })
+        doc_id = ids[idx]
+        entry = id_lookup.get(doc_id, {})
+        chunks.append({
+            "id": doc_id,
+            "content": entry.get("content", ""),
+            "metadata": entry.get("metadata", {}),
+            "distance": None,
+            "bm25_score": float(scores[idx]),
+        })
     return chunks
 
 
