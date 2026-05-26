@@ -9,6 +9,7 @@ chroma_db/
 
 # WeChat session (personal token)
 .wechat_session.json
+wechat_qr.png
 
 # Python
 __pycache__/

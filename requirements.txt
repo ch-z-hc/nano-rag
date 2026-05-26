@@ -10,3 +10,5 @@ openai>=1.30.0
 qrcode>=7.4.0
 pillow>=10.0.0
 pycryptodome>=3.20.0
+pytesseract>=0.3.10
+pdf2image>=1.16.0
