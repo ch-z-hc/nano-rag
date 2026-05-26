@@ -18,11 +18,13 @@ def _load_config() -> dict:
 
 
 def _get_llm_client():
-    cfg = _load_config()["deepseek"]
+    cfg = _load_config()["llm"]
+    provider_name = cfg["active"]
+    provider = cfg["providers"][provider_name]
     return OpenAI(
-        api_key=cfg["api_key"],
-        base_url=cfg["base_url"],
-    ), cfg["model"]
+        api_key=provider["api_key"],
+        base_url=provider["base_url"],
+    ), provider["model"]
 
 
 # ---------------------------------------------------------------------------

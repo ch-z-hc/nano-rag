@@ -71,10 +71,25 @@ python main.py wechat-login   # 扫码登录
 
 ```json
 {
-  "deepseek": {
-    "api_key": "sk-your-key",
-    "model": "deepseek-chat",
-    "base_url": "https://api.deepseek.com"
+  "llm": {
+    "active": "deepseek",
+    "providers": {
+      "deepseek": {
+        "api_key": "sk-your-key",
+        "model": "deepseek-chat",
+        "base_url": "https://api.deepseek.com"
+      },
+      "dashscope": {
+        "api_key": "sk-your-key",
+        "model": "qwen-plus",
+        "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1"
+      },
+      "openai": {
+        "api_key": "sk-your-key",
+        "model": "gpt-4o",
+        "base_url": "https://api.openai.com/v1"
+      }
+    }
   },
   "rag": {
     "chunking_strategy": "parent_child",
@@ -96,6 +111,10 @@ python main.py wechat-login   # 扫码登录
   }
 }
 ```
+
+### LLM 厂商
+
+支持任意 OpenAI 兼容 API。在 `llm.providers` 中添加配置，将 `llm.active` 设为要使用的厂商名称即可切换。
 
 ### 分块策略
 

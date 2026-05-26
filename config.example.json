@@ -1,8 +1,23 @@
 {
-  "deepseek": {
-    "api_key": "sk-your-deepseek-api-key",
-    "model": "deepseek-chat",
-    "base_url": "https://api.deepseek.com"
+  "llm": {
+    "active": "deepseek",
+    "providers": {
+      "deepseek": {
+        "api_key": "sk-your-deepseek-api-key",
+        "model": "deepseek-chat",
+        "base_url": "https://api.deepseek.com"
+      },
+      "dashscope": {
+        "api_key": "sk-your-dashscope-api-key",
+        "model": "qwen-plus",
+        "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1"
+      },
+      "openai": {
+        "api_key": "sk-your-openai-api-key",
+        "model": "gpt-4o",
+        "base_url": "https://api.openai.com/v1"
+      }
+    }
   },
   "rag": {
     "chunking_strategy": "parent_child",
