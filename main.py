@@ -101,14 +101,18 @@ def cmd_serve(args):
 
     async def _start_wechat(app):
         nonlocal _wechat_task
-        from channels.wechat import run_wechat_bot
+        from channels.wechat import run_wechat_bot, login_wechat
         from rag.query import ask as rag_ask
         from channels.wechat import _load_session
 
         session = _load_session()
         if not session.get("token"):
-            print("[wechat] No saved session, skipping. Run 'python main.py wechat-login' first.")
-            return
+            print("[wechat] No saved session, starting login...")
+            await login_wechat()
+            session = _load_session()
+            if not session.get("token"):
+                print("[wechat] Login failed or cancelled, skipping WeChat bot.")
+                return
 
         async def handle(from_user, content, msg_id):
             print(f"[wx] {from_user}: {content}")
