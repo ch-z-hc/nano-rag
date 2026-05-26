@@ -10,7 +10,7 @@ from typing import Optional
 from aiohttp import web
 
 from rag.ingest import ingest_directory, ingest_file
-from rag.query import ask, retrieve
+from rag.query import ask, retrieve, reset_bm25_index
 from rag.store import reset_store
 
 
@@ -34,6 +34,9 @@ def cmd_ingest(args):
         files, chunks = ingest_directory(path, recursive=not args.no_recursive)
         print(f"Done. {files} files -> {chunks} chunks added.")
 
+    # Reset BM25 index so next query rebuilds it with new documents
+    reset_bm25_index()
+
 
 def cmd_query(args):
     question = args.question
@@ -46,8 +49,12 @@ def cmd_query(args):
             print("未找到相关内容")
         for i, c in enumerate(chunks):
             src = c["metadata"].get("source_name", "?")
+            rrf = c.get("rrf_score")
             dist = c.get("distance")
-            print(f"\n--- [{i+1}] {src} (distance={dist:.4f}) ---")
+            score_info = f"rrf={rrf:.4f}" if rrf else f"distance={dist:.4f}" if dist else ""
+            has_parent = "parent_content" in c.get("metadata", {})
+            parent_tag = " [parent-child]" if has_parent else ""
+            print(f"\n--- [{i+1}] {src} ({score_info}){parent_tag} ---")
             print(c["content"][:300])
     else:
         answer = ask(question, args.top_k or None)
@@ -638,6 +645,10 @@ async def _ingest_handler(req):
                 ingested.append({"name": filename, "chunks": n})
             except Exception as e:
                 errors.append(f"{filename}: {e}")
+
+        # Reset BM25 index so next query rebuilds with new documents
+        if ingested:
+            reset_bm25_index()
 
         ok = len(ingested) > 0
         return web.json_response({

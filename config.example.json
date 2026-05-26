@@ -5,8 +5,13 @@
     "base_url": "https://api.deepseek.com"
   },
   "rag": {
+    "chunking_strategy": "parent_child",
     "chunk_size": 500,
     "chunk_overlap": 100,
+    "parent_chunk_size": 2048,
+    "child_chunk_size": 256,
+    "child_chunk_overlap": 50,
+    "hybrid_search": true,
     "top_k": 5,
     "embedding_model": "paraphrase-multilingual-MiniLM-L12-v2",
     "collection_name": "nano_rag_kb",

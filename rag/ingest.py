@@ -55,6 +55,28 @@ def _chunk_text(text: str, chunk_size: int, overlap: int) -> List[str]:
     return chunks
 
 
+def _chunk_text_parent_child(
+    text: str,
+    parent_size: int = 2048,
+    child_size: int = 256,
+    child_overlap: int = 50,
+) -> List[Tuple[str, str, int]]:
+    """Two-level chunking: split into parent chunks, then sub-split each into children.
+
+    Returns list of (child_text, parent_text, parent_index) tuples.
+    Retrieval uses child_text (fine-grained matching);
+    LLM receives parent_text (complete context).
+    """
+    parents = _chunk_text(text, parent_size, overlap=0)
+    result: List[Tuple[str, str, int]] = []
+    for parent_idx, parent_text in enumerate(parents):
+        children = _chunk_text(parent_text, child_size, child_overlap)
+        for child_text in children:
+            if child_text.strip():
+                result.append((child_text, parent_text, parent_idx))
+    return result
+
+
 def _parse_pdf(filepath: Path) -> str:
     """Extract text from PDF using pdfplumber (text layer) with pypdf + OCR fallback."""
     texts: list[str] = []
@@ -178,10 +200,6 @@ def ingest_file(filepath: Path) -> int:
         return 0
 
     cfg = _load_config()["rag"]
-    chunks = _chunk_text(text, cfg["chunk_size"], cfg["chunk_overlap"])
-    if not chunks:
-        return 0
-
     collection, _ = get_store()
     fhash = _file_hash(filepath)
 
@@ -193,25 +211,57 @@ def ingest_file(filepath: Path) -> int:
     except Exception:
         pass
 
-    ids = [f"{fhash}_{i}" for i in range(len(chunks))]
-    metadatas = [
-        {
-            "source": str(filepath),
-            "source_name": filepath.name,
-            "source_hash": fhash,
-            "chunk_index": i,
-            "chunk_count": len(chunks),
-        }
-        for i in range(len(chunks))
-    ]
+    strategy = cfg.get("chunking_strategy", "flat")
+
+    if strategy == "parent_child":
+        pc_chunks = _chunk_text_parent_child(
+            text,
+            parent_size=cfg.get("parent_chunk_size", 2048),
+            child_size=cfg.get("child_chunk_size", 256),
+            child_overlap=cfg.get("child_chunk_overlap", 50),
+        )
+        if not pc_chunks:
+            return 0
+
+        ids = [f"{fhash}_{i}" for i in range(len(pc_chunks))]
+        documents = [child for child, _, _ in pc_chunks]
+        metadatas = [
+            {
+                "source": str(filepath),
+                "source_name": filepath.name,
+                "source_hash": fhash,
+                "chunk_index": i,
+                "chunk_count": len(pc_chunks),
+                "parent_content": parent,
+                "parent_index": pidx,
+            }
+            for i, (_, parent, pidx) in enumerate(pc_chunks)
+        ]
+    else:
+        chunks = _chunk_text(text, cfg["chunk_size"], cfg["chunk_overlap"])
+        if not chunks:
+            return 0
+
+        ids = [f"{fhash}_{i}" for i in range(len(chunks))]
+        documents = chunks
+        metadatas = [
+            {
+                "source": str(filepath),
+                "source_name": filepath.name,
+                "source_hash": fhash,
+                "chunk_index": i,
+                "chunk_count": len(chunks),
+            }
+            for i in range(len(chunks))
+        ]
 
     collection.add(
         ids=ids,
-        documents=chunks,
+        documents=documents,
         metadatas=metadatas,
     )
 
-    return len(chunks)
+    return len(ids)
 
 
 def ingest_directory(dirpath: Path, recursive: bool = True) -> Tuple[int, int]:
