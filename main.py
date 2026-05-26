@@ -117,7 +117,7 @@ def cmd_serve(args):
         async def handle(from_user, content, msg_id):
             print(f"[wx] {from_user}: {content}")
             try:
-                answer = rag_ask(content)
+                answer = await asyncio.to_thread(rag_ask, content)
                 return answer
             except Exception as e:
                 return f"出错了: {e}"
@@ -376,11 +376,15 @@ function renderAnswer(text) {
 function esc(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
 // ---- KB ----
+let _filesCache = {};
 async function loadKB() {
   try {
     const res = await fetch('/api/kb');
     const data = await res.json();
-    renderKB(data.files||[]);
+    const files = data.files||[];
+    _filesCache = {};
+    files.forEach(f => { if(f.hash) _filesCache[f.hash] = f; });
+    renderKB(files);
   } catch(e) { console.error(e); }
 }
 
@@ -406,13 +410,14 @@ function renderKB(files) {
       + '<div class="file-info"><div class="file-name" title="'+esc(f.name)+'">'+esc(f.name)+'</div>'
       + '<div class="file-meta">'+(size?size+' · ':'')+esc(f.path||'')+'</div></div>'
       + '<div class="file-chunks">'+f.chunks+' 片段</div>'
-      + '<button class="del-btn" title="删除" onclick="event.stopPropagation();delDoc(\''+esc(f.hash)+'\',\''+esc(f.name)+'\')">✕</button>'
+      + '<button class="del-btn" title="删除" onclick="event.stopPropagation();delDoc(\''+esc(f.hash)+'\')">✕</button>'
       + '</div>';
   }
   list.innerHTML = html;
 }
 
-async function delDoc(hash, name) {
+async function delDoc(hash) {
+  const name = (_filesCache[hash]||{}).name || hash;
   if (!confirm('确定要从知识库中删除 "'+name+'" 吗？')) return;
   try {
     const res = await fetch('/api/kb/'+encodeURIComponent(hash), {method:'DELETE'});
@@ -529,7 +534,7 @@ async def _query_handler(req):
         top_k = body.get("top_k")
         if not question:
             return web.json_response({"error": "question is required"}, status=400)
-        answer = ask(question, top_k)
+        answer = await asyncio.to_thread(ask, question, top_k)
         return web.json_response({"answer": answer})
     except Exception as e:
         return web.json_response({"error": str(e)}, status=500)
@@ -676,7 +681,7 @@ async def _wechat_serve():
     async def handle_message(from_user: str, content: str, msg_id: str) -> Optional[str]:
         print(f"[wx] {from_user}: {content}")
         try:
-            answer = rag_ask(content)
+            answer = await asyncio.to_thread(rag_ask, content)
             return answer
         except Exception as e:
             return f"出错了: {e}"

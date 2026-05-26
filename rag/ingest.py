@@ -99,12 +99,14 @@ def _parse_pdf(filepath: Path) -> str:
         pass
 
     # 2. Fallback to pypdf
+    texts = []
     from pypdf import PdfReader
-    reader = PdfReader(str(filepath))
-    for page in reader.pages:
-        t = page.extract_text()
-        if t:
-            texts.append(t)
+    with open(filepath, "rb") as f:
+        reader = PdfReader(f)
+        for page in reader.pages:
+            t = page.extract_text()
+            if t:
+                texts.append(t)
     if texts:
         return "\n\n".join(texts)
 
@@ -151,11 +153,18 @@ def _pdf_ocr_fallback(filepath: Path) -> str:
 
 def _parse_markdown(filepath: Path) -> str:
     """Read markdown as plain text (structure preserved as-is)."""
-    return filepath.read_text(encoding="utf-8", errors="replace")
+    try:
+        return filepath.read_text(encoding="utf-8")
+    except UnicodeDecodeError:
+        return filepath.read_text(encoding="gbk", errors="replace")
 
 
 def _parse_txt(filepath: Path) -> str:
-    return filepath.read_text(encoding="utf-8", errors="replace")
+    """Read text file, trying UTF-8 first then falling back to system default encoding."""
+    try:
+        return filepath.read_text(encoding="utf-8")
+    except UnicodeDecodeError:
+        return filepath.read_text(encoding="gbk", errors="replace")
 
 
 PARSERS = {
