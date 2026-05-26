@@ -146,11 +146,27 @@ async def login_wechat() -> str | None:
 
         scan_url = qrcode_img if qrcode_img.startswith("http") else qrcode_id
 
-        # Print QR in terminal
+        # Show QR code
         qr = qrcode.QRCode(border=1)
         qr.add_data(scan_url)
         qr.make(fit=True)
-        qr.print_ascii(invert=True)
+
+        # Try printing to terminal; fall back to saving as image on Windows
+        try:
+            qr.print_ascii(invert=True)
+        except (UnicodeEncodeError, Exception):
+            qr_path = Path(__file__).resolve().parent.parent / "wechat_qr.png"
+            img = qr.make_image(fill_color="black", back_color="white")
+            img.save(str(qr_path))
+            print(f"\n[终端无法显示二维码，已保存至: {qr_path}]")
+            # Try to open the image automatically
+            import platform
+            if platform.system() == "Windows":
+                os.startfile(str(qr_path))
+            elif platform.system() == "Darwin":
+                os.system(f'open "{qr_path}"')
+            else:
+                os.system(f'xdg-open "{qr_path}" 2>/dev/null &')
         print(f"\nLogin URL: {scan_url}")
         print("\n请用微信扫描上方二维码，等待确认...")
 
