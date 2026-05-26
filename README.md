@@ -23,7 +23,7 @@
        │
        ▼
 ┌─────────────┐    ┌──────────────────────────────────┐    ┌──────────────┐
-│   channels   │───▶│          rag/query.py            │───▶│  DeepSeek API │
+│   channels   │───▶│          rag/query.py            │───▶│  LLM API      │
 │  wechat.py   │    │                                  │    │  生成回答      │
 └─────────────┘    │  ┌─────────┐    ┌──────────┐    │    └──────────────┘
                    │  │ BM25    │    │ Dense    │    │
@@ -50,9 +50,9 @@
 # 1. 安装依赖
 pip install -r requirements.txt
 
-# 2. 创建配置（填入你的 DeepSeek API Key）
+# 2. 创建配置（填入你的 LLM API Key，支持 DeepSeek / 通义千问 / OpenAI 等）
 cp config.example.json config.json
-# 编辑 config.json，将 api_key 改为你的 key
+# 编辑 config.json，设置 llm.active 选择厂商，填入对应的 api_key
 
 # 3. 导入知识库
 python main.py ingest knowledge/      # 导入目录
@@ -72,7 +72,7 @@ python main.py wechat-login   # 扫码登录
 ```json
 {
   "llm": {
-    "active": "deepseek",
+    "active": "deepseek",          // 可选 deepseek / dashscope / openai
     "providers": {
       "deepseek": {
         "api_key": "sk-your-key",
@@ -194,7 +194,7 @@ nano-rag/
 | 向量库 | ChromaDB (SQLite, 本地持久化) |
 | 稀疏检索 | BM25 (rank-bm25) + jieba 分词 |
 | 检索融合 | RRF (Reciprocal Rank Fusion) |
-| LLM | DeepSeek Chat API |
+| LLM | OpenAI 兼容 API（DeepSeek / 通义千问 / OpenAI 等） |
 | Web 框架 | aiohttp |
 | 前端 | Vanilla JS + marked + KaTeX |
 | PDF 解析 | pdfplumber / pypdf / Tesseract OCR |
